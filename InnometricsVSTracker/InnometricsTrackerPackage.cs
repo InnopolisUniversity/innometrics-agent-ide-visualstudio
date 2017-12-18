@@ -12,8 +12,12 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 using InnometricsVSTracker.Forms;
 using Microsoft.VisualStudio.TextManager.Interop;
+using NLog;
+using NLog.Targets;
+using NLog.Config;
 using Document = EnvDTE.Document;
 using Task = System.Threading.Tasks.Task;
+using System.Reflection;
 
 namespace InnometricsVSTracker
 {
@@ -50,6 +54,8 @@ namespace InnometricsVSTracker
         private TextEditorEvents _editorEvents;
         private DTEEvents _dteEvents;
         private IServiceProvider _serviceProvider;
+        
+        private Logger _logger;
 
         private static DTE2 _objDte;
         private static Sender _sender;
@@ -75,10 +81,40 @@ namespace InnometricsVSTracker
             _dteEvents = _objDte.Events.DTEEvents;
             _dteEvents.OnStartupComplete += OnOnStartupComplete;
 
+            InitializeLog();
+            
+
             Task.Run(() =>
             {
                 InitializeAsync();
             });
+        }
+
+        private void InitializeLog()
+        {
+            var config = new LoggingConfiguration();
+            
+            var consoleTarget = new ColoredConsoleTarget();
+            config.AddTarget("console", consoleTarget);
+
+            var fileTarget = new FileTarget();
+            config.AddTarget("file", fileTarget);
+            
+            consoleTarget.Layout = @"${date:format=HH\:mm\:ss} ${logger} ${message}";
+            fileTarget.FileName = "${basedir}/file.txt";
+            fileTarget.Layout = "${message}";
+            
+            var rule1 = new LoggingRule("*", LogLevel.Debug, consoleTarget);
+            config.LoggingRules.Add(rule1);
+
+            var rule2 = new LoggingRule("*", LogLevel.Debug, fileTarget);
+            config.LoggingRules.Add(rule2);
+            
+            LogManager.Configuration = config;
+            //LogManager.ThrowExceptions = true;
+            
+            _logger = LogManager.GetLogger("InnoLog");
+            _logger.Info("Program started");
         }
 
         private void InitializeAsync()
@@ -117,12 +153,13 @@ namespace InnometricsVSTracker
         private void HandleActivity()
         {
             var id = GetCurrentPath();
+            _logger.Debug("Activity path: " + id);
             var last = _activities.LastOrDefault();
             if (last == null)
             {
                 StartActivity(id);
             }
-            else if (last.Measurements.Select(m => m).FirstOrDefault(n => n.Name == "path")?.Value != id)
+            else if (last.Measurements.Select(m => m).FirstOrDefault(n => n.Name == "code path")?.Value != id)
             {
                 StopLastActivity();
                 StartActivity(id);
@@ -140,9 +177,11 @@ namespace InnometricsVSTracker
         private void StartActivity(string id)
         {
             var activity = new Activity("Visual Studio Extension", new List<Measurement>());
-            var path = new Measurement("path", "string", id);
+            var path = new Measurement("code path", "string", id);
             var startTimestamp = new Measurement("start_time", "long", GetTimestamp().ToString());
+            var filePath = new Measurement("file path", "string", _objDte.ActiveDocument.Path);
             activity.Measurements.Add(path);
+            activity.Measurements.Add(filePath);
             activity.Measurements.Add(startTimestamp);
             _activities.Add(activity);
         }
@@ -161,25 +200,36 @@ namespace InnometricsVSTracker
             {
                 if (node.IsKind(SyntaxKind.MethodDeclaration))
                 {
-                    names.Add((node as MethodDeclarationSyntax)?.Identifier.ValueText);
+                    names.Add("FUNC:"+(node as MethodDeclarationSyntax)?.Identifier.ValueText);
                 }
                 else if (node.IsKind(SyntaxKind.ClassDeclaration))
                 {
-                    names.Add((node as ClassDeclarationSyntax)?.Identifier.ValueText);
+                    names.Add("CLASS:"+(node as ClassDeclarationSyntax)?.Identifier.ValueText);
                 }
                 else if (node.IsKind(SyntaxKind.NamespaceDeclaration))
                 {
-                    names.Add((node as NamespaceDeclarationSyntax)?.Name.ToString());
+                    names.Add("NS:"+(node as NamespaceDeclarationSyntax)?.Name.ToString());
                 }
                 else if (node.IsKind(SyntaxKind.ConstructorDeclaration))
                 {
-                    names.Add((node as ConstructorDeclarationSyntax)?.Identifier.ValueText);
+                    names.Add("FUNC:"+(node as ConstructorDeclarationSyntax)?.Identifier.ValueText);
+                }
+                else if (node.IsKind(SyntaxKind.SimpleLambdaExpression))
+                {
+                    names.Add("FUNC:[LAMBDA]");
+                }
+                else if (node.IsKind(SyntaxKind.AnonymousMethodExpression))
+                {
+                    names.Add("FUNC:[ANONYMOUS]");
                 }
                 node = node.Parent;
             }
 
             names.Reverse();
-            var id = document.Project.Language + "|" + _projectName + "|" + String.Join("|", names.ToArray());
+            //var id = document.Project.Language + "|" + _projectName + "|" + String.Join("|", names.ToArray());
+            var textSelection = (TextSelection)_objDte.ActiveDocument.Selection;
+            var line = textSelection.ActivePoint.Line;
+            var id = "PROJ:" + _projectName + "|LANG:" + document.Project.Language + "|" + String.Join("|", names.ToArray()) + "|LINE:" + line;
             return id;
         }
 
@@ -205,6 +255,7 @@ namespace InnometricsVSTracker
             }
             catch (Exception ex)
             {
+                _logger.Error(ex.Message);
                 Console.WriteLine(@"SolutionEventsOnOpened");
             }
         }
@@ -241,6 +292,7 @@ namespace InnometricsVSTracker
             }
             catch (Exception ex)
             {
+                _logger.Error(ex.Message);
                 Console.WriteLine(@"WindowEventsOnWindowActivated");
             }
         }
@@ -257,6 +309,7 @@ namespace InnometricsVSTracker
                 StopLastActivity();
 
                 var sended = _sender.SendActivities(_activities);
+                _logger.Debug("Sended: " + sended.ToString());
                 if (sended)
                     _activities = new List<Activity>();
             }
