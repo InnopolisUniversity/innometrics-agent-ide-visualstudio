@@ -1,11 +1,10 @@
 # innometrics-agent-ide-visualstudio
 
-### Innometrics plugin for JetBrains products (IntelliJ IDEA, PyCharm)
+### Innometrics plugin for Visual Studio (2015, 2017)
 
 Installation: 
 
 Compile source code, run InnometricsVSTracker.vsix from bin folder and select necessary IDEs version.
-
 
 Collecting measurements:
 
@@ -22,11 +21,12 @@ Element labels:
     - LINE - line in the file
 - "code begin time" - UTC timestamp in ms, e.g. 1511857258858
 - "code end time" - UTC timestamp in ms, e.g. 1511857258858
-- "version name" - name of the IDE application, e.g. IntelliJ IDEA
-- "full version" - version of the IDE application, e.g. 2017.2.5
-- "company name" - vendor of the IDE application, e.g. JetBrains s.r.o.
+- "version name" - name of the IDE application, e.g. Microsoft Visual Studio
+- "full version" - version of the IDE application, e.g. 15.0
 
 Anonymous classes are denoted as CLASS:[ANONYMOUS].
+
+Anonymous methods are denoted as FUNC:[ANONYMOUS].
 
 Lambda expressions are denoted as FUNC:[LAMBDA].
 
