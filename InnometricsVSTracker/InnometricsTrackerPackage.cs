@@ -170,7 +170,7 @@ namespace InnometricsVSTracker
         {
             var lastActivity = _activities.Last();
             if (lastActivity.Measurements.Select(m => m).LastOrDefault(m => m.Name == "end_time") != null) return;
-            var stopTimestamp = new Measurement("end_time", "long", GetTimestamp().ToString());
+            var stopTimestamp = new Measurement("code end time", "long", GetTimestamp().ToString());
             lastActivity.Measurements.Add(stopTimestamp);
         }
 
@@ -178,11 +178,15 @@ namespace InnometricsVSTracker
         {
             var activity = new Activity("Visual Studio Extension", new List<Measurement>());
             var path = new Measurement("code path", "string", id);
-            var startTimestamp = new Measurement("start_time", "long", GetTimestamp().ToString());
-            var filePath = new Measurement("file path", "string", _objDte.ActiveDocument.Path);
+            var startTimestamp = new Measurement("code begin time", "long", GetTimestamp().ToString());
+            var filePath = new Measurement("file path", "string", _objDte.ActiveDocument.FullName);
+            var IDEName = new Measurement("version name", "string", _objDte.Name);
+            var IDEVersion = new Measurement("full version", "string", _objDte.Version);
             activity.Measurements.Add(path);
             activity.Measurements.Add(filePath);
             activity.Measurements.Add(startTimestamp);
+            activity.Measurements.Add(IDEName);
+            activity.Measurements.Add(IDEVersion);
             _activities.Add(activity);
         }
 
