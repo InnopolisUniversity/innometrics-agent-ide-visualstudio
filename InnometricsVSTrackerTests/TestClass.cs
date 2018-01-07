@@ -7,26 +7,26 @@ using System.Threading.Tasks;
 namespace InnometricsVSTrackerTests
 {
     class TestClass
-    {
+    { 
         public TestClass()
         {
-            //constructor 
+            //constructor
         }
 
         public class TestInnerClass
-        {
+        { 
             TestInnerClass()
             {
-                //constructor 
+                //constructor
             }
 
             private void InnerMethod()
             {
-                var i = 1;
+                var i = 1; 
                 var t1 = new System.Threading.Thread
                 (delegate()
                 {
-                    //anonymous
+                    //anonymous 
                     System.Console.Write("Hello, ");
                     System.Console.WriteLine("World!");
                 });

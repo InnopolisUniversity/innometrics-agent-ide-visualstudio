@@ -7,10 +7,11 @@ using Microsoft.VisualStudio.Shell;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.VisualStudio.Text.Editor;
 
 namespace InnometricsVSTracker
 {
-    class Tracker
+    public class Tracker
     {
         #region Fields
         private static DTE2 _objDte;
@@ -109,9 +110,8 @@ namespace InnometricsVSTracker
             }
 
             names.Reverse();
-            //var id = document.Project.Language + "|" + _projectName + "|" + String.Join("|", names.ToArray());
-            var textSelection = (TextSelection)_objDte.ActiveDocument.Selection;
-            var line = textSelection.ActivePoint.Line;
+            //var textSelection = (TextSelection)_objDte.ActiveDocument.Selection;
+            var line = tree.GetLineSpan(span).StartLinePosition.Line;
             var id = "PROJ:" + ProjectName + "|LANG:" + ProjectLanguage + "|" + String.Join("|", names.ToArray()) + "|LINE:" + line;
             return id;
         }
