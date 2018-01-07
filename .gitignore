@@ -3,3 +3,5 @@
 packages/*
 InnometricsVSTracker/bin/*
 InnometricsVSTracker/obj/*
+InnometricsVSTrackerTests/bin/*
+InnometricsVSTrackerTests/obj/*

@@ -1,23 +1,19 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Runtime.InteropServices;
 using EnvDTE;
 using EnvDTE80;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 using InnometricsVSTracker.Forms;
+using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.TextManager.Interop;
 using NLog;
 using NLog.Targets;
 using NLog.Config;
 using Document = EnvDTE.Document;
 using Task = System.Threading.Tasks.Task;
-using System.Reflection;
 
 namespace InnometricsVSTracker
 {
@@ -56,14 +52,12 @@ namespace InnometricsVSTracker
         private IServiceProvider _serviceProvider;
         
         private Logger _logger;
+        private Tracker _tracker;
 
         private static DTE2 _objDte;
         private static Sender _sender;
 
         // Settings
-        private static string _solutionName = string.Empty;
-        private static string _projectName = string.Empty;
-        private static List<Activity> _activities = new List<Activity>();
         private static readonly ConfigFile ConfigFile = new ConfigFile();
         #endregion
 
@@ -80,9 +74,9 @@ namespace InnometricsVSTracker
             _serviceProvider = ServiceProvider.GlobalProvider;
             _dteEvents = _objDte.Events.DTEEvents;
             _dteEvents.OnStartupComplete += OnOnStartupComplete;
+            _tracker = new Tracker();
 
             InitializeLog();
-            
 
             Task.Run(() =>
             {
@@ -128,7 +122,6 @@ namespace InnometricsVSTracker
             // setup event handlers
             _docEvents.DocumentSaved += DocumentEventsOnDocumentSaved;
             _editorEvents.LineChanged += TextEditorEventsOnLineChanged;
-            _solutionEvents.Opened += SolutionEventsOnOpened;
             _solutionEvents.BeforeClosing += SolutionEventsBeforeClosed;
             _windowEvents.WindowActivated += WindowEventsOnWindowActivated;
         }
@@ -150,91 +143,16 @@ namespace InnometricsVSTracker
             HandleActivity();
         }
 
-        private void HandleActivity()
+        private static SyntaxTree GetSyntaxTree(SnapshotPoint caretPosition)
         {
-            var id = GetCurrentPath();
-            _logger.Debug("Activity path: " + id);
-            var last = _activities.LastOrDefault();
-            if (last == null)
-            {
-                StartActivity(id);
-            }
-            else if (last.Measurements.Select(m => m).FirstOrDefault(n => n.Name == "code path")?.Value != id)
-            {
-                StopLastActivity();
-                StartActivity(id);
-            }
+            return caretPosition.Snapshot.GetOpenDocumentInCurrentContextWithChanges().GetSyntaxRootAsync().Result.SyntaxTree;
         }
 
-        private void StopLastActivity()
-        {
-            var lastActivity = _activities.Last();
-            if (lastActivity.Measurements.Select(m => m).LastOrDefault(m => m.Name == "end_time") != null) return;
-            var stopTimestamp = new Measurement("code end time", "long", GetTimestamp().ToString());
-            lastActivity.Measurements.Add(stopTimestamp);
-        }
-
-        private void StartActivity(string id)
-        {
-            var activity = new Activity("Visual Studio Extension", new List<Measurement>());
-            var path = new Measurement("code path", "string", id);
-            var startTimestamp = new Measurement("code begin time", "long", GetTimestamp().ToString());
-            var filePath = new Measurement("file path", "string", _objDte.ActiveDocument.FullName);
-            var IDEName = new Measurement("version name", "string", _objDte.Name);
-            var IDEVersion = new Measurement("full version", "string", _objDte.Version);
-            activity.Measurements.Add(path);
-            activity.Measurements.Add(filePath);
-            activity.Measurements.Add(startTimestamp);
-            activity.Measurements.Add(IDEName);
-            activity.Measurements.Add(IDEVersion);
-            _activities.Add(activity);
-        }
-
-        private string GetCurrentPath()
+        private SnapshotPoint GetCaretPosition()
         {
             var textView = GetTextView();
             var caretPosition = textView.Caret.Position.BufferPosition;
-            var document = caretPosition.Snapshot.GetOpenDocumentInCurrentContextWithChanges();
-
-            var span = document.GetSyntaxRootAsync().Result.FindToken(caretPosition).Span;
-            var node = document.GetSyntaxRootAsync().Result.FindNode(span);
-            var names = new List<String>();
-
-            while (node != null)
-            {
-                if (node.IsKind(SyntaxKind.MethodDeclaration))
-                {
-                    names.Add("FUNC:"+(node as MethodDeclarationSyntax)?.Identifier.ValueText);
-                }
-                else if (node.IsKind(SyntaxKind.ClassDeclaration))
-                {
-                    names.Add("CLASS:"+(node as ClassDeclarationSyntax)?.Identifier.ValueText);
-                }
-                else if (node.IsKind(SyntaxKind.NamespaceDeclaration))
-                {
-                    names.Add("NS:"+(node as NamespaceDeclarationSyntax)?.Name.ToString());
-                }
-                else if (node.IsKind(SyntaxKind.ConstructorDeclaration))
-                {
-                    names.Add("FUNC:"+(node as ConstructorDeclarationSyntax)?.Identifier.ValueText);
-                }
-                else if (node.IsKind(SyntaxKind.SimpleLambdaExpression))
-                {
-                    names.Add("FUNC:[LAMBDA]");
-                }
-                else if (node.IsKind(SyntaxKind.AnonymousMethodExpression))
-                {
-                    names.Add("FUNC:[ANONYMOUS]");
-                }
-                node = node.Parent;
-            }
-
-            names.Reverse();
-            //var id = document.Project.Language + "|" + _projectName + "|" + String.Join("|", names.ToArray());
-            var textSelection = (TextSelection)_objDte.ActiveDocument.Selection;
-            var line = textSelection.ActivePoint.Line;
-            var id = "PROJ:" + _projectName + "|LANG:" + document.Project.Language + "|" + String.Join("|", names.ToArray()) + "|LINE:" + line;
-            return id;
+            return caretPosition;
         }
 
         private Microsoft.VisualStudio.Text.Editor.IWpfTextView GetTextView()
@@ -251,23 +169,19 @@ namespace InnometricsVSTracker
             return componentModel.GetService<Microsoft.VisualStudio.Editor.IVsEditorAdaptersFactoryService>();
         }
 
-        private void SolutionEventsOnOpened()
-        {
-            try
-            {
-                _solutionName = _objDte.Solution.FullName;
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex.Message);
-                Console.WriteLine(@"SolutionEventsOnOpened");
-            }
-        }
-
         private static string GetProjectName()
         {
-            return !string.IsNullOrEmpty(_solutionName)
-                ? Path.GetFileNameWithoutExtension(_solutionName)
+            string solutionName;
+            try
+            {
+                solutionName = _objDte.Solution.FullName;
+            }
+            catch (Exception)
+            {
+                solutionName = null;
+            }
+            return !string.IsNullOrEmpty(solutionName)
+                ? Path.GetFileNameWithoutExtension(solutionName)
                 : !string.IsNullOrEmpty(_objDte.Solution?.FullName)
                     ? Path.GetFileNameWithoutExtension(_objDte.Solution.FullName)
                     : string.Empty;
@@ -276,22 +190,12 @@ namespace InnometricsVSTracker
         private void SolutionEventsBeforeClosed()
         {
             SendActivities();
-
-            _solutionName = string.Empty;
-            _projectName = string.Empty;
-            _activities = new List<Activity>();
         }
-
-        private int GetTimestamp()
-        {
-            return (int)DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1)).TotalSeconds;
-        }
-
+       
         private void WindowEventsOnWindowActivated(Window gotFocus, Window lostFocus)
         {
             try
             {
-                _projectName = GetProjectName();
                 HandleActivity();
             }
             catch (Exception ex)
@@ -301,6 +205,15 @@ namespace InnometricsVSTracker
             }
         }
 
+        private void HandleActivity()
+        {
+            var caretPosition = GetCaretPosition();
+            var tree = GetSyntaxTree(caretPosition);
+            _tracker.ProjectName = GetProjectName();
+            _tracker.ProjectLanguage = caretPosition.Snapshot.GetOpenDocumentInCurrentContextWithChanges().Project.Language;
+            _tracker.HandleActivity(tree, caretPosition);
+        }
+
         private void DocumentEventsOnDocumentSaved(Document document)
         {
             SendActivities();
@@ -308,17 +221,15 @@ namespace InnometricsVSTracker
 
         private void SendActivities()
         {
-            if (_activities.Count > 0)
+            if (_tracker.Activities.Count <= 0) return;
+            _tracker.StopLastActivity();
+            var sended = _sender.SendActivities(_tracker.Activities);
+            _logger.Debug("Sended: " + sended.ToString());
+            if (sended)
             {
-                StopLastActivity();
-
-                var sended = _sender.SendActivities(_activities);
-                _logger.Debug("Sended: " + sended.ToString());
-                if (sended)
-                    _activities = new List<Activity>();
+                _tracker.ClearActivities();
             }
         }
-
         #endregion
     }
 }
