@@ -19,7 +19,7 @@ namespace InnometricsVSTrackerTests
             var caretPosition = 161;
 
             var path = tracker.GetCurrentPath(tree, caretPosition);
-            var expected = "PROJ:TestProj|LANG:C#|NS:InnometricsVSTrackerTests|LINE:7";
+            var expected = "PROJ:TestProj|LANG:C#|NS:InnometricsVSTrackerTests|LINE:8";
 
             Assert.AreEqual(path, expected);
         }
@@ -33,7 +33,7 @@ namespace InnometricsVSTrackerTests
             var caretPosition = 189;
 
             var path = tracker.GetCurrentPath(tree, caretPosition);
-            var expected = "PROJ:TestProj|LANG:C#|NS:InnometricsVSTrackerTests|CLASS:TestClass|LINE:9";
+            var expected = "PROJ:TestProj|LANG:C#|NS:InnometricsVSTrackerTests|CLASS:TestClass|LINE:10";
 
             Assert.AreEqual(path, expected);
         }
@@ -44,10 +44,10 @@ namespace InnometricsVSTrackerTests
 
             var code = new StreamReader("..\\..\\TestClass.cs").ReadToEnd();
             var tree = CSharpSyntaxTree.ParseText(code);
-            var caretPosition = 257;
+            var caretPosition = 229;
 
             var path = tracker.GetCurrentPath(tree, caretPosition);
-            var expected = "PROJ:TestProj|LANG:C#|NS:InnometricsVSTrackerTests|CLASS:TestClass|FUNC:TestClass|LINE:13";
+            var expected = "PROJ:TestProj|LANG:C#|NS:InnometricsVSTrackerTests|CLASS:TestClass|FUNC:TestClass|LINE:12";
 
             Assert.AreEqual(path, expected);
         }
@@ -58,10 +58,10 @@ namespace InnometricsVSTrackerTests
 
             var code = new StreamReader("..\\..\\TestClass.cs").ReadToEnd();
             var tree = CSharpSyntaxTree.ParseText(code);
-            var caretPosition = 317;
+            var caretPosition = 318;
 
             var path = tracker.GetCurrentPath(tree, caretPosition);
-            var expected = "PROJ:TestProj|LANG:C#|NS:InnometricsVSTrackerTests|CLASS:TestClass|CLASS:TestInnerClass|LINE:16";
+            var expected = "PROJ:TestProj|LANG:C#|NS:InnometricsVSTrackerTests|CLASS:TestClass|CLASS:TestInnerClass|LINE:17";
 
             Assert.AreEqual(path, expected);
         }
@@ -72,10 +72,10 @@ namespace InnometricsVSTrackerTests
 
             var code = new StreamReader("..\\..\\TestClass.cs").ReadToEnd();
             var tree = CSharpSyntaxTree.ParseText(code);
-            var caretPosition = 394;
+            var caretPosition = 363;
 
             var path = tracker.GetCurrentPath(tree, caretPosition);
-            var expected = "PROJ:TestProj|LANG:C#|NS:InnometricsVSTrackerTests|CLASS:TestClass|CLASS:TestInnerClass|FUNC:TestInnerClass|LINE:20";
+            var expected = "PROJ:TestProj|LANG:C#|NS:InnometricsVSTrackerTests|CLASS:TestClass|CLASS:TestInnerClass|FUNC:TestInnerClass|LINE:19";
 
             Assert.AreEqual(path, expected);
         }
@@ -86,7 +86,7 @@ namespace InnometricsVSTrackerTests
 
             var code = new StreamReader("..\\..\\TestClass.cs").ReadToEnd();
             var tree = CSharpSyntaxTree.ParseText(code);
-            var caretPosition = 494;
+            var caretPosition = 466;
 
             var path = tracker.GetCurrentPath(tree, caretPosition);
             var expected = "PROJ:TestProj|LANG:C#|NS:InnometricsVSTrackerTests|CLASS:TestClass|CLASS:TestInnerClass|FUNC:InnerMethod|LINE:24";
@@ -100,10 +100,10 @@ namespace InnometricsVSTrackerTests
 
             var code = new StreamReader("..\\..\\TestClass.cs").ReadToEnd();
             var tree = CSharpSyntaxTree.ParseText(code);
-            var caretPosition = 630;
+            var caretPosition = 685;
 
             var path = tracker.GetCurrentPath(tree, caretPosition);
-            var expected = "PROJ:TestProj|LANG:C#|NS:InnometricsVSTrackerTests|CLASS:TestClass|CLASS:TestInnerClass|FUNC:InnerMethod|FUNC:[ANONYMOUS]|LINE:29";
+            var expected = "PROJ:TestProj|LANG:C#|NS:InnometricsVSTrackerTests|CLASS:TestClass|CLASS:TestInnerClass|FUNC:InnerMethod|FUNC:[ANONYMOUS]|LINE:30";
 
             Assert.AreEqual(path, expected);
         }
